@@ -1,0 +1,458 @@
+---
+title: "NYPD Incident Shooting Data Analysis"
+author: "Eric"
+date: "5/27/2021"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+***
+
+# After years of a downward trend in shootings and deaths in New York City, why was there a spike in shootings and deaths in 2020?
+
+***
+
+
+# Description of Data: 
+***
+
+The data set I am analyzing is the NYPD Shooting Incident Data (Historic). The data was obtained from data.gov at this url: https://catalog.data.gov/dataset and it is the home of the U.S. Governments open data. 
+
+
+This data set has records on any incident where there was a shooting from 01/01/2006 - 12/31/2020. It also gives us data on: 
+
+
+- The victims race, sex, and age range.
+
+- The perpetrators race, sex, and age range.
+
+- The Borough & Precinct where it occurred.
+
+- The Date & Time the shooting occurred.
+
+- If the Shooting resulted in a death.
+
+- Description of the location of the shooting.
+
+- It also has data on: X_COORD_CD, Y_COORD_CD, Latitude, Longitude, Lon_Lat, JURISDICTION_CODE, and INCIDENT_KEY, but I didn't use any of this additional data and filtered it out early on.
+
+
+***
+# Load packages we will use:
+***
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+# Load & View Data:
+
+I downloaded the NYPD Shooting Incident Data (Historic) report from the URL provided in the Description of Data section in the report, and saved it as a csv on my desktop and imported it from there.:
+***
+```{r}
+NYPD_Shooting_Incident_Data_Historic <- read_csv("/Users/ericdoci/Desktop/NYPD_Shooting_Incident_Data__Historic.csv")
+
+NYPD_Shooting_Incident_Data_Historic
+```
+
+# Filter out data for X&Y Coordinate, Latitude & Longitude, Lon&Lat, Jurisdictiion Code,, Incident Key, Occur Time, and Location Description:
+***
+```{r}
+nypd_shootings <- NYPD_Shooting_Incident_Data_Historic %>%
+  select(-c(X_COORD_CD, Y_COORD_CD, Latitude, Longitude, Lon_Lat, JURISDICTION_CODE, INCIDENT_KEY, OCCUR_TIME))
+
+nypd_shootings
+
+summary(nypd_shootings)
+```
+
+# Change date from character value to date value:
+***
+```{r}
+nypd_shootings <- nypd_shootings %>%
+    mutate(OCCUR_DATE = mdy(OCCUR_DATE))
+
+nypd_shootings
+
+summary(nypd_shootings)
+```
+
+# Separate date so that Month, Date, and Year each have their own column:
+***
+```{r}
+nypd_shootings <- nypd_shootings %>% separate(OCCUR_DATE, c("Year", "Month", "Day"))
+
+nypd_shootings
+    
+summary(nypd_shootings)
+```
+
+# View shootings per year in NYC:
+***
+```{r}
+shootings_year_ny <- nypd_shootings %>%
+  group_by(Year) %>%
+  summarise_at(vars(STATISTICAL_MURDER_FLAG), list(Shootings = length))
+
+shootings_year_ny
+```
+
+# View deaths per Year in NYC:
+***
+```{r}
+deaths_year_ny <- nypd_shootings %>%
+  group_by(Year) %>%
+  summarise(Deaths = sum(STATISTICAL_MURDER_FLAG == "TRUE"))
+
+deaths_year_ny
+```
+
+# Merge Shootings and Deaths per year:
+***
+```{r}
+
+shooting_death_year_ny <- shootings_year_ny %>% 
+  full_join(deaths_year_ny)
+
+shooting_death_year_ny
+```
+
+
+# Graph Shootings & Deaths Per Year in NYC:
+
+Set x = as.numeric(Year) so that the line can be added be added to the plots
+
+***
+
+```{r}
+shooting_death_year_ny %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in NYC", y=NULL) 
+```
+
+***
+
+# Analysis of Shootings & Deaths Per Year in NYC:
+
+When looking at the graph of Shootings/Year and Deaths/Year in New York City, one can notice a rather consistent downward trend in the number of shooting incidents and deaths from 2006 to 2019. The most surprising thing we notice on the graph is the drastic increase (~100%) in shootings and deaths in the year 2020 compared to the previous years. A couple of other notable observations are the relatively significant decreases in shootings and deaths in 2013 compared to 2012, i.e. ~22% and ~17% respectively. 
+
+***
+
+# View shootings per year by BORO ("BRONX", "BROOKLYN", "STATEN ISLAND", "MANHATTAN", "QUEENS"):
+***
+```{r}
+
+shootings_year_boro <- nypd_shootings %>%
+  group_by(BORO, Year) %>%
+  summarise_at(vars(STATISTICAL_MURDER_FLAG), list(Shootings = length))
+
+view(shootings_year_boro)
+```
+
+# View deaths PER Year by BORO ("BRONX", "BROOKLYN", "STATEN ISLAND", "MANHATTAN", "QUEENS"):
+***
+```{r}
+deaths_year_boro <- nypd_shootings %>%
+  group_by(BORO, Year) %>%
+  summarise(Deaths = sum(STATISTICAL_MURDER_FLAG == "TRUE"))
+
+View(deaths_year_boro)
+```
+
+# Merge Shootings and Death per year by Boro ("BRONX", "BROOKLYN", "STATEN ISLAND", "MANHATTAN", "QUEENS"):
+***
+```{r}
+shooting_death_year_boro <- shootings_year_boro %>% 
+  full_join(deaths_year_boro)
+
+view(shooting_death_year_boro)
+
+summary(shooting_death_year_boro)
+```
+***
+# Graph Shootings & Deaths Per Year by BORO ("BRONX", "BROOKLYN", "STATEN ISLAND", "MANHATTAN", "QUEENS"):
+***
+
+
+
+# Graph Shootings/Year & Deaths/Year in the Bronx: 
+
+***
+```{r}
+boro <- "BRONX"
+shooting_death_year_boro %>%
+  filter(BORO == boro) %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in Bronx", y=NULL)
+```
+
+***
+
+# Analysis of Shootings/Year & Deaths/Year in the Bronx: 
+
+The graph of Shootings/Year and Deaths/Year for the Bronx shows a rather consistent downward trend in shootings and deaths per year very similar to what we saw in the graph for all of NYC. Also, similar to what we see in the NYC graph, we also notice a major rise in 2020 and a relative drop in 2013 for the Bronx.
+
+***
+
+
+
+# Graph Shootings/Year & Deaths/Year in Brooklyn: 
+
+***
+```{r}
+boro <- "BROOKLYN"
+shooting_death_year_boro %>%
+  filter(BORO == boro) %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in Brooklyn", y=NULL)  
+```
+
+***
+
+# Analysis of Shootings/Year & Deaths/Year in Brooklyn: 
+
+Brooklyn has the most shootings and deaths per year compared to all the other boroughs. The Brooklyn graph of Shootings/Year and Deaths/Year shows a rather consistent downward trend in shootings and deaths a year like in the NYC and Bronx graphs. The same jump in Shootings and Deaths in 2020 can again be noticed, but for Brooklyn, we see a large drop in shootings and deaths in 2012 instead of 2013, which was the year that showed a notable drop for NYC and Bronx.
+
+***
+
+
+
+# Graph Shootings/Year & Deaths/Year in Staten Island: 
+
+***
+```{r}
+boro <- "STATEN ISLAND"
+shooting_death_year_boro %>%
+  filter(BORO == boro) %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in Staten Island", y=NULL) 
+  
+```
+
+***
+
+# Analysis of Shootings/Year & Deaths/Year in Staten Island: 
+
+Staten Island has the least amount of shootings and deaths per year compared to all the other boroughs. We notice a very slight downward trend in shootings and deaths per year in Staten Island, but the data is rather sporadic and inconsistent. For Staten Island, the shootings and deaths in 2020 seem rather consistent with the general overall trend, but we notice a relatively large increase in shootings from 2007 to 2008 and decreases from 2009 to 2010 and 2017 to 2018.
+
+***
+
+
+
+# Graph Shootings/Year & Deaths/Year in Manhattan: 
+
+***
+```{r}
+boro <- "MANHATTAN"
+shooting_death_year_boro %>%
+  filter(BORO == boro) %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in Manhattan", y=NULL)  
+```
+
+***
+
+# Analysis of Shootings/Year & Deaths/Year in Manhattan: 
+
+The graph of shootings and deaths per year in Manhattan is a little more sporadic compared to the graphs for The Bronx and Brooklyn, but we can still notice the same type of consistent downward trend here. For Manhattan, we notice a substantial increase in shootings from 2018 to 2019 and then making an even bigger jump from 2019 to 2020. We can also notice rather substantial drops from 2012 to 2013/14 and 2016 to 2017/18.
+
+***
+
+
+
+# Graph Shootings/Year & Deaths/Year in Queens: 
+
+***
+```{r}
+boro <- "QUEENS"
+shooting_death_year_boro %>%
+  filter(BORO == boro) %>%
+  ggplot(aes(x = as.numeric(Year), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in Queens", y=NULL) 
+```
+
+***
+
+# Analysis of Shootings/Year & Deaths/Year in Queens: 
+
+Lastly, we have the graph for Queens. This graph also shows a consistent downward trend like the NYC and the other boroughs, except for Staten Island. Like in the other graphs, we again notice the large increase in shootings from 2019 to 2020 as well as a notable drop from 2012 to 2013. Of interest are also the rather large drop from 2006 to 2007 and the the jump from 2007 to 2008, which surpasses the number of shootings in 2006.
+
+***
+
+
+
+
+# Create Linear Model for Deaths as a function of Shootings
+***
+```{r}
+mod <- lm(Deaths ~ Shootings, data = shooting_death_year_ny) 
+
+summary(mod)
+```
+
+# View Shootings Min & Max 
+***
+```{r}
+shooting_death_year_ny %>% slice_min(Shootings) 
+
+shooting_death_year_ny %>% slice_max(Shootings)
+```
+# Create a grid from 900 (a little below our shootings min) and 2100 (a little above our shootings max)
+***
+```{r}
+x_grid <- seq(900, 2100)
+
+new_df <- tibble(Shootings = x_grid)
+```
+
+# Add predictive linear model to shootings and deaths per year in NYC
+***
+```{r}
+shooting_death_year_ny_w_pred <- shooting_death_year_ny %>% mutate(pred = predict(mod))
+
+view(shooting_death_year_ny_w_pred)
+```
+# Plot predictive linear model and shootings vs deaths per year in NYC
+***
+```{r}
+shooting_death_year_ny_w_pred %>% 
+  ggplot() + 
+  geom_point(aes(x = Shootings, y = Deaths), color = "blue") + 
+  geom_point(aes(x = Shootings, y = pred), color = "red") + 
+  geom_line(aes(x = Shootings, y = pred), color = "red")
+```
+
+***
+# Shootings vs Deaths with pred Analysis:
+
+When looking at the graphs for Shootings vs Deaths, there is a pretty steady linear correlation between the two. We can notice this by just looking at the graph with the predictive model. When we look at R-squared (0.9204) and Adjusted R-squared (0.9143), as well as a P-value of (1.616e-08), they reinforce the direct correlation we see between shootings in a year and deaths in a year.
+
+***
+
+# Compare Shootings per month in 2019 and 2020 to see if there are insights for the 2020 spike
+***
+```{r}
+shootings_month_ny_19_20 <- nypd_shootings %>%
+  filter(Year > 2018) %>%
+  group_by(Month, Year) %>%
+  summarise_at(vars(STATISTICAL_MURDER_FLAG), list(Shootings = length))
+
+shootings_month_ny_19_20
+```
+# Deaths per month 2019 and 2020 to see if there are insights for the 2020 spike
+***
+```{r}
+deaths_month_ny_19_20 <- nypd_shootings %>%
+  filter(Year > 2018) %>%
+  group_by(Month, Year) %>%
+  summarise(Deaths = sum(STATISTICAL_MURDER_FLAG == "TRUE"))
+
+View(deaths_month_ny_19_20)
+```
+# Merge Shootings & Deaths per month in 2019 and 2020
+***
+```{r}
+shooting_death_month_ny_19_20 <- shootings_month_ny_19_20 %>% 
+  full_join(deaths_month_ny_19_20)
+
+view(shooting_death_month_ny_19_20)
+
+```
+
+# Plot shootings/deaths per month in NYC in 2019 
+***
+```{r}
+year <- "2019"
+shooting_death_month_ny_19_20 %>%
+  filter(Year == year) %>%
+  ggplot(aes(x = as.numeric(Month), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in NYC 2019", y=NULL)  
+```
+
+# Plot shootings/deaths per month in NYC in 2020
+
+***
+```{r}
+year <- "2020"
+shooting_death_month_ny_19_20 %>%
+  filter(Year == year) %>%
+  ggplot(aes(x = as.numeric(Month), y = Shootings)) +
+  geom_line(aes(color = "Shootings")) +
+  geom_point(aes(color = "Shootings")) +
+  geom_line(aes(y = Deaths, color = "Deaths")) +
+  geom_point(aes(y = Deaths, color = "Deaths")) +
+  theme(legend.position="bottom", axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Shootings/Year & Deaths/Year in NYC 2020", y=NULL)  
+```
+
+***
+# Analysis of Shootings/Month & Deaths/Month for 2019/2020
+
+When looking at the monthly shooting data for 2019 and 2020, we will see that shootigns per month in January-April of 2020 are consistent with the shootings per month in the previous 4-month period, i.e. Sep-Dec 2019. We also notice that January-April of 2019 is also consistent with the shooting numbers in 2020. The spike in shootings & deaths starts in May of 2020 (just about a month after the US began its Covid lock-down) and it continues pretty much throughout the remainder of the year. 
+***
+
+***
+# Conclusion:
+
+After creating and analyzing all of the visualizations and models, it is clear that all of the New York City boroughs, except for Staten Island, are following the same general downward trend with a large spike in shootings from from 2019 to 2020, specifically from 967 shootings in 2019 to 1942 shootings in 2020.  Similarly, all boroughs except Staten Island, experienced a rather significant drop in shootings from 2012 (1717) to 2013 (1339). 
+
+It was surprising to see that, after 14 years of shootings and deaths trending downward in New York City, the spike in 2020 was so significant that it was about twice higher than 2019 and it appears to have wiped out years of continuous decerease in shootings & deaths. I think there could be many factors to attribute to this increase in shootings, but the two most relevant ones to me are Covid and the BLM protests that occurred last year. 
+
+I think Covid played a huge role in the rise in shootings from 2019 to 2020. Due to Covid, millions of Americans lost their jobs. When looking at the monthly shooting data for 2019 and 2020, we will see that shootigns per month in January-April of 2020 are consistent with the shootings per month in the previous 4-month period, i.e. Sep-Dec 2019. The spike in shootings & deaths starts in May of 2020 (just about a month after the US began its lockdown) and it continues pretty much throughout the remainder of the year. Around this same time, people started losing their jobs and were panicking about how to provide for their families. Also, the people most affected by the lockdown were lower-income families, because of the shutdown of restaurants, stores, and other similar businesses that employed lower income individuals. 
+
+I also believe that another factor that explains the increase in shootings in 2020 is the unrest associated with the Black Lives Matter protests. After the death of George Floyd last year, the nation responded by organizing protests all across the US and some of these were turned violent and may have also lead to some of the increase in shootings. 
+
+In regards to the significant dip in 2013, I do not have any insights as to what may have caused these results, but the random drop from form 2012 to 2013 and then jump back from 2013 to 2014, but it does raise some questions. 
+
+In conclusion, I believe that New York will see a substantial decline in shootings in the year 2021. 2020 was such a crazy year, millions of people lost their jobs, mental health was a bigger issue than ever, and no one had ever experienced anything like that before. 2020 was a result of insane circumstances and I am very interested to see what the data for 2021 will show. Also, there is some missing information in the data, which if available, could have helped with a better analysis and insights, e.g. is there a possible one-to-many relationship in the data for shootings vs. deaths and how are mass shootings counted?
+
+***
+# Possible Sources of bias:
+
+A couple of possible sources of bias for me personally are that I am more liberal and I am in favor of gun control legislation and behind that lies my bias and belief that relaxed gun laws contribute to shootings and deaths.  When it comes to my political standing, I am more Liberal and that could be the reason I mentioned the BLM protests as a cause for the increase in shootings from 2019-2020 in NYC. I do see how that could be a biased claim, but I made that claim solely because of the timing of the protests and how they correlated directly to the summer when the shooting numbers for 2020 showed an increase between  140% and 200% compared to 2019. 
+
+Also, the fact that I am against gun violence is another thing that can make me have certain opinions and affect how I view the data. When I was reviewing the data, I did my best to leave out any personal feelings and solely make predictions based on the data and knowledge I have of the past year. Lastly, attributing the increase in shooting in 2020 to Covid could also be a source of bias, but I believe that the data truly shows this correlation and my predictions are based on sound observations. 
+
+
+
+
